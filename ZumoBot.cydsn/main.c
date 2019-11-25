@@ -30,6 +30,7 @@
 */
 
 #include <project.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include "FreeRTOS.h"
 #include "task.h"
@@ -47,49 +48,652 @@
 #include <sys/time.h>
 #include "serial1.h"
 #include <unistd.h>
+
+
 /**
  * @file    main.c
  * @brief   
  * @details  ** Enable global interrupt since Zumo library uses interrupts. **<br>&nbsp;&nbsp;&nbsp;CyGlobalIntEnable;<br>
 */
-
-#if 1
-// Hello World!
-void zmain(void)
+    int findStatus(struct sensors_ dig){
+                int st=-1;
+                if(dig.l1==1 && dig.l2==1 && dig.l3==1 && dig.r1==1 && dig.r2==1 && dig.r3==1){ //dark line return 0;
+                              st=0;
+                }
+                else{
+                            st=1;
+                        }
+                return st;
+                /*
+                How to use this to find line
+                   
+                int count=0;//register how mant time dark and light changes. one line has two changes since there are two edges 
+                
+                in while loop
+                    reflectance_digital(&dig);
+                    temp=findStatus(dig);//get new status
+                    motor_forward(50,2); 
+                    if(temp!=status){
+                        count++;
+                        
+                    }
+                    status=temp;//remember the current status
+                
+                */
+}
+    void motor_hardRight(uint8 speed,uint32 delay)//on point(tank) turn right 
 {
-    printf("\nHello, World!\n");
+    MotorDirLeft_Write(0);      // set LeftMotor forward mode
+    MotorDirRight_Write(1);     // set RightMotor forward mode
+    PWM_WriteCompare1(speed); 
+    PWM_WriteCompare2(speed); 
+    vTaskDelay(delay);
+}
 
-    while(true)
-    {
-        vTaskDelay(100); // sleep (in an infinite loop)
+     void motor_hardLeft(uint8 speed,uint32 delay)//on point (tank) turn left
+{
+    MotorDirLeft_Write(1);      // set LeftMotor forward mode
+    MotorDirRight_Write(0);     // set RightMotor forward mode
+    PWM_WriteCompare1(speed); 
+    PWM_WriteCompare2(speed); 
+    vTaskDelay(delay);
+}
+struct sensors_ findThres(){
+    struct sensors_ raw, threshold;
+        uint32_t maxl1=0,maxl2=0,maxl3=0,maxr1=0,maxr2=0,maxr3=0, minl1=0,minl2=0,minl3=0,minr1=0,minr2=0,minr3=0;
+        motor_start();
+        motor_forward(0,0);
+        
+        Beep(100,255);
+        vTaskDelay(2000);
+        for(int i =0; i<500; i++){//white first
+            
+            reflectance_read(&raw);
+             motor_hardLeft(100,5);
+            if(i==0){
+                maxl1=raw.l1;
+                maxl2=raw.l2;
+                maxl3=raw.l3;
+                maxr1=raw.r1;
+                maxr2=raw.r2;
+                maxr3=raw.r3;
+                
+                minl1=raw.l1;
+                minl2=raw.l2;
+                minl3=raw.l3;
+                minr1=raw.r1;
+                minr2=raw.r2;
+                minr3=raw.r3;
+            }// init max and min value with the first reading 
+            else if(raw.l1>maxl1){
+                maxl1=raw.l1;
+            }else if(raw.l1<minl1){
+                minl1=raw.l1;
+            }//find out the max or min value for L1 
+            if(raw.l2>maxl2){
+                maxl2=raw.l2;
+            }else if(raw.l2<minl2){
+                minl2=raw.l2;
+            }//for L2
+            if(raw.l3>maxl3){
+                maxl3=raw.l3;
+            }else if(raw.l3<minl3){
+                minl3=raw.l3;
+            }//for L3
+            if(raw.r1>maxr1){
+                maxl1=raw.l1;
+            }else if(raw.r1<minr1){
+                minr1=raw.r1;
+            }// find the min value for r1
+            if(raw.r2>maxr2){
+                maxr2=raw.r2;
+            }else if(raw.r2<minr2){
+                minr2=raw.r2;
+            }
+            if(raw.r3>maxr3){
+                maxr3=raw.r3;
+            }else if(raw.r3<minr3){
+                minr3=raw.r3;
+            }
+            
+             
+        }
+        motor_forward(0,0);
+        threshold.l1=(maxl1+minl1)/2;
+        threshold.l2=(maxl2+minl2)/2;
+        threshold.l3=(maxl3+minl3)/2;
+        threshold.r1=(maxr1+minr1)/2;
+        threshold.r2=(maxr2+minr2)/2;
+        threshold.r3=(maxr3+minr3)/2;
+        Beep(100,255);
+        return threshold;
+        /*
+        how to using this function to set threshold 
+        reflectance_start();
+        struct sensors_ threshold,dig;
+        threshold=findThres();
+        
+        reflectance_set_threshold(threshold.l3,threshold.l2,threshold.l1,threshold.r1,threshold.r2,threshold.r3);
+        */
+}
+   int lineStatus(struct sensors_ dig){
+    if(dig.l1==1 && dig.r1==1){
+        
+        return 3;// go straght
+    }if(dig.r1==1 && dig.r2==1 &&dig.r3!=1){
+        return 24; //go little right
+    }if(dig.r2==1 && dig.r3==1 && dig.l3!=1){
+        return 25; //go hard right
+    }if(dig.l1==1 && dig.l2==1 && dig.l3!=1){
+        return 14; //go little left
+    }if(dig.l2==1 && dig.l3==1 && dig.r3!=1){
+        return 15; // go hard left
     }
- }   
+    return -1;
+}
+
+#if 1 //line following 
+    void zmain(){
+        motor_start();
+        reflectance_start();
+        int speed=50;        //initial speed 
+         struct accData_ data; //acc_sensor data
+        struct sensors_ dig,threshold; // reflection sensor data
+        threshold=findThres();// find threshold
+        
+        reflectance_set_threshold(threshold.l3,threshold.l2,threshold.l1,threshold.r1,threshold.r2,threshold.r3); // set thresthold
+        
+        if(LSM303D_Start()){
+            while(true){
+                //find where is the line 
+                
+                
+            }
+            
+            
+            
+        }
+        
+    }
+#endif
+    
+#if 0// Sumo wrestling
+    void zmain(){
+        motor_start();
+        reflectance_start();
+        int speed=50;
+        
+       
+        
+        struct accData_ data;
+        struct sensors_ dig,threshold;
+        threshold=findThres();
+        
+        reflectance_set_threshold(threshold.l3,threshold.l2,threshold.l1,threshold.r1,threshold.r2,threshold.r3);
+        
+      if(LSM303D_Start()){
+        
+        while(SW1_Read()==1){
+            vTaskDelay(2);
+        }
+       
+            
+                while(true){
+                    
+                        LSM303D_Read_Acc(&data);
+                        reflectance_digital(&dig);
+                        motor_forward(speed,2);
+                        if(dig.l1&dig.l2&dig.l3&dig.r1&dig.r2&dig.r3!=1){
+                            motor_hardLeft(255,100);
+                            motor_backward(0,0);
+                        }
+                        if(dig.l3==1 && dig.r3!=1){
+                            motor_hardLeft(255,50);
+                             motor_backward(0,0);
+                        }
+                        if(dig.l3!=1 && dig.r3==1){
+                             motor_hardRight(255,50);
+                             motor_backward(0,0);
+                        }
+                        
+                        printf("%10d,%10d,%10d\n", data.accX, data.accY, data.accZ );
+                        if(data.accX<-15000 && data.accY<0.33*data.accX){
+                            Beep(100,255);
+                            printf("Got hit from left front(45degree)\n ");
+                            motor_hardLeft(255,50);
+                             motor_backward(0,0);
+                            
+                        }if(data.accX<-15000 && data.accY>10000){
+                            Beep(100,255);
+                            printf("Got hit from right front(-45degree)\n ");
+                            motor_hardRight(255,50);
+                             motor_backward(0,0);
+                            
+                        }if(abs(data.accX)<2500 && data.accY>10000){
+                            Beep(100,255);
+                            printf("Got hit from left\n ");
+                            motor_hardLeft(255,100);
+                             motor_backward(0,0);
+                        }if(data.accX>5000 && data.accY>5000){
+                            Beep(100,255);
+                            printf("Got hit from left back\n ");
+                            motor_hardLeft(255,50);
+                             motor_backward(0,0);
+                        }if(data.accX>-20000 && abs(data.accY)<2000){
+                             Beep(100,255);
+                            printf("Got hit from left back\n ");
+                            motor_forward(255,50);
+                             motor_backward(0,0);
+                            
+                        }
+                }
+            
+        
+    }
+    
+        
+        
+    }
+    
+#endif
+#if 0// 5.3
+    void zmain(){
+        reflectance_start();
+        motor_start();
+        RTC_Start();
+        RTC_TIME_DATE now;
+        
+        
+        IR_Start();
+        IR_flush();
+        struct sensors_ threshold,dig;
+        threshold=findThres();
+        
+        reflectance_set_threshold(threshold.l3,threshold.l2,threshold.l1,threshold.r1,threshold.r2,threshold.r3);
+        TickType_t start, end;
+        int count=0;
+        int status=0;
+        int temp=findStatus(dig);//init the status 
+        while(SW1_Read()==1){
+            vTaskDelay(2);
+        }
+        int i=-1;
+        while(i==-1){
+            reflectance_digital(&dig);
+            temp=findStatus(dig);
+            motor_forward(50,2);
+                    if(temp!=status){
+                        Beep(100,255);
+                        count++;
+                        if(count==3){
+                            motor_forward(0,0);
+                            IR_wait();
+                            start=xTaskGetTickCount();
+                        }
+                        
+                        
+                        motor_forward(50,2);
+                        if(count==4){
+                           end=xTaskGetTickCount();
+                            print_mqtt("Zumo044/lap ","%d milliseconds",end-start);
+                            motor_forward(0,0);
+                            i=0;
+                            
+                        }
+                        
+                        status=temp;
+                        
+                    }
+        }
+        
+        
+        
+    }
+#endif
+#if 0 //5.2 
+    void zmain(){
+        Ultra_Start();
+        motor_start();
+        Ultra_GetDistance();
+        vTaskDelay(1000);
+        Beep(100,255);
+        while(SW1_Read()==1){
+            vTaskDelay(2);
+        }
+        while(true){
+        
+        motor_forward(100,2);
+        if(Ultra_GetDistance()<10){
+            motor_forward(0,0);
+            motor_backward(100,1000);
+            int turn=rand()%2;
+            if(turn==0){//turn left
+                motor_hardLeft(100,500);
+                print_mqtt("Zumo044/turn ","left");
+                
+            }else{
+                motor_hardRight(100,500);
+                print_mqtt("Zumo044/turn ","right");
+            }
+            
+        }
+        
+        }
+        
+        
+        
+        
+        
+    
+       
+        
+        
+        
+        
+         
+    }
+#endif
+#if 0
+    
+    
+    
+       //5.1 
+    void zmain(){
+        int8 hour=0,minute=0,sec=0;
+        RTC_Start();
+        RTC_TIME_DATE now;
+        printf("Please inpout a time hh:mm:ss\n");
+        scanf("%d, %d, %d", &hour,&minute,&sec);
+        now.Hour=hour;
+        now.Min=minute;
+        now.Sec=sec;
+        RTC_WriteTime(&now);
+        while(true){
+            if(SW1_Read()==0){
+                RTC_DisableInt();
+                now=*RTC_ReadTime();
+                RTC_EnableInt();
+                print_mqtt("zumo114/time is:","%hd:%hd:%hd",now.Hour,now.Min,now.Sec);
+                
+            }
+        }
+    }
+       
+      /* int hour=0,minute=0;
+        int result_minute=0;
+        TickType_t start=0,end=0;
+        vTaskDelay(5000);
+        printf("please enter a time in format HH:MM ");
+        scanf("%d:%d",&hour,&minute);
+        start=xTaskGetTickCount(); 
+       while(true){
+            if(SW1_Read()==0){
+                end=xTaskGetTickCount();
+                break;
+            }
+        }
+        result_minute=(((end-start)/1000)/60)+100;
+         print_mqtt("zumo114/result is ", "%d", result_minute);
+        if(result_minute>=60){
+            hour=hour+result_minute/60;
+         minute=result_minute%60;
+        }else{
+            minute=result_minute+minute;
+        }
+        print_mqtt("zumo114/Time now is", "%d:%d", hour,minute);*/
+        
+        
+    
+    
+    //}
+
 #endif
 
 #if 0
+    //4.3
+    
+     
+
+void zmain(void){   
+        
+            
+    
+    
+    
+    struct sensors_ ref;
+    struct sensors_ dig;
+    IR_Start();
+    IR_flush();
+    
+    
+    reflectance_start(); 
+     //dark is 1 white 0
+    int count=0;//need to change 
+    int status=0;
+    motor_start();
+    motor_forward(0,0);
+    while(SW1_Read()==1){
+        vTaskDelay(2);
+    }
+    struct sensors_ threshold;
+    threshold=findThres();
+    reflectance_set_threshold(threshold.l3,threshold.l2,threshold.l1,threshold.r1,threshold.r2,threshold.r3);
+    
+    Beep(100,255);
+     vTaskDelay(1000);
+    Beep(100,255);
+    //reflectance_digital(&dig);
+    while(true){
+        reflectance_digital(&dig);
+       
+        motor_forward(50,2);
+        int temp=findStatus(dig);
+        if(temp!=status){
+            Beep(100,255);
+            count++;
+            if(count==2){
+                motor_forward(0,0);
+                IR_wait();
+            }
+            if(count>=4 && temp==0){
+                motor_forward(0,0);
+                break;
+            }
+            status= temp;
+            
+        }
+        if(count>2){
+            if(dig.l3==1 && dig.r3!=1){        
+                                       
+                    motor_turn(0,220,50);
+                }if( dig.r3==1 && dig.l3!=1){
+                    motor_turn(220,0,50);
+                                    
+                }else{
+                    motor_forward(50,2);
+                }
+               
+                
+                
+                
+                
+            }
+        }
+}
+
+
+#endif
+
+
+
+#if 0
+    
+//4.2
+    void motor_hardLeft(uint8 speed,uint32 delay)
+{
+    MotorDirLeft_Write(1);      // set LeftMotor forward mode
+    MotorDirRight_Write(0);     // set RightMotor forward mode
+    PWM_WriteCompare1(speed); 
+    PWM_WriteCompare2(speed); 
+    vTaskDelay(delay);
+}
+void motor_hardRight(uint8 speed,uint32 delay)
+{
+    MotorDirLeft_Write(0);      // set LeftMotor forward mode
+    MotorDirRight_Write(1);     // set RightMotor forward mode
+    PWM_WriteCompare1(speed); 
+    PWM_WriteCompare2(speed); 
+    vTaskDelay(delay);
+}
+int findStatus(struct sensors_ dig){
+                int st=-1;
+                if(dig.l1==1 && dig.l2==1 && dig.l3==1 && dig.r1==1 && dig.r2==1 && dig.r3==1){
+                              st=0;
+                        }else{
+                            st=1;
+                        }
+                        return st;
+}
+
+void zmain(void)
+{      
+    struct sensors_ ref;
+    struct sensors_ dig;
+    IR_Start();
+    IR_flush();
+    
+    
+    reflectance_start(); 
+    reflectance_set_threshold(8300, 7000, 6000, 6000, 6700, 9600); //dark is 1 white 0
+    int count=0;//need to change 
+    int status=0;
+    motor_start();
+    motor_forward(0,0);
+    while(SW1_Read()==1){
+        vTaskDelay(2);
+    }
+    vTaskDelay(2000);
+    //reflectance_digital(&dig);
+    while(true){
+        reflectance_digital(&dig);
+       
+        motor_forward(50,2);
+        int temp=findStatus(dig);
+        if(temp!=status){
+            Beep(100,255);
+            count++;
+            if(count==2){
+                motor_forward(0,0);
+                IR_wait();
+            }
+            if(count==5){
+                motor_forward(0,0);
+                motor_hardLeft(235,200);
+            }
+            if(count==7){
+                motor_forward(0,0);
+                motor_hardRight(235,200);
+            }
+            if(count== 9){
+                motor_forward(0,0);
+                motor_hardRight(235,200);
+                
+            }
+            if(count==10){
+                motor_forward(0,0);
+                break;
+                
+            }
+           
+            status=temp;
+        }
+            
+           
+        
+       
+    }
+    
+                      
+    
+  
+}   
+#endif
+
+#if 0
+// 4.1
+    int findStatus(struct sensors_ dig){
+                int st=-1;
+                if(dig.l1==1 && dig.l2==1 && dig.l3==1 && dig.r1==1 && dig.r2==1 && dig.r3==1){
+                              st=0;
+                        }else{
+                            st=1;
+                        }
+                        return st;
+}
+void zmain(void)
+{
+    struct sensors_ ref;
+    struct sensors_ dig;
+    IR_Start();
+    IR_flush();
+    
+    
+    reflectance_start(); 
+    reflectance_set_threshold(8300, 7000, 6000, 6000, 6700, 9600); //dark is 1 white 0
+    int count=8;
+    int status=0;
+    motor_start();
+    motor_forward(0,0);
+    while(SW1_Read()==1){
+        vTaskDelay(2);
+    }
+    //reflectance_digital(&dig);
+    while(true){
+        reflectance_digital(&dig);
+       
+        motor_forward(50,2);
+        int temp=findStatus(dig);
+        if(temp!=status){
+            Beep(100,255);
+            count--;
+            if(count==6){
+                motor_forward(0,0);
+                IR_wait();
+                
+                
+            }
+            if(count==0){
+                motor_forward(0,0);
+                break;
+            }
+            status=temp;
+        }
+            
+           
+        
+       
+    }
+    
+    
+ }  
+
+
+#endif
+
+#if 0
+    
 // Name and age
 void zmain(void)
 {
-    char name[32];
-    int age;
+    int button=SW1_Read();
     
-    
-    printf("\n\n");
-    
-    printf("Enter your name: ");
-    //fflush(stdout);
-    scanf("%s", name);
-    printf("Enter your age: ");
-    //fflush(stdout);
-    scanf("%d", &age);
-    
-    printf("You are [%s], age = %d\n", name, age);
-
-    while(true)
-    {
-        BatteryLed_Write(!SW1_Read());
-        vTaskDelay(100);
+   while(button==0) {
+        printf("You pressed button\n");
+        printf("press again:");
+        button=
     }
+
+  
  }   
 #endif
 
@@ -117,7 +721,8 @@ void zmain(void)
         char msg[80];
         ADC_Battery_StartConvert(); // start sampling
         if(ADC_Battery_IsEndConversion(ADC_Battery_WAIT_FOR_RESULT)) {   // wait for ADC converted value
-            adcresult = ADC_Battery_GetResult16(); // get the ADC value (0 - 4095)
+            adcresult = ADC_Battery_GetResult16();
+            // get the ADC value (0 - 4095)
             // convert value to Volts
             // you need to implement the conversion
             
@@ -313,23 +918,56 @@ void zmain(void)
 /* Example of how to use te Accelerometer!!!*/
 void zmain(void)
 {
+    
     struct accData_ data;
+    struct accData_ initial;
     
     printf("Accelerometer test...\n");
 
     if(!LSM303D_Start()){
         printf("LSM303D failed to initialize!!! Program is Ending!!!\n");
-        vTaskSuspend(NULL);
+      
     }
     else {
         printf("Device Ok...\n");
     }
     
+    vTaskDelay(3000);
+    LSM303D_Read_Acc(&data);
+    initial=data;
+    int turn;
+    
+    motor_start();
+    motor_forward(0,0);
+    
+    turn=rand()%2;
+            if(turn==0){
+                motor_turn(0,100,500);
+            }else{
+                motor_turn(100,0,500);
+            }
+    
     while(true)
     {
-        LSM303D_Read_Acc(&data);
-        printf("%8d %8d %8d\n",data.accX, data.accY, data.accZ);
-        vTaskDelay(50);
+         LSM303D_Read_Acc(&data);
+          motor_forward(100,2);
+        
+            
+            
+        if(abs(data.accX-initial.accX)>15000 ){
+            Beep(200,255);
+            motor_forward(0,0);
+            motor_backward(100,500);
+     
+        
+            turn=rand()%2;
+                if(turn==0){
+                     motor_turn(0,100,500);
+                }else{
+                    motor_turn(100,0,500);
+            }
+        
+       
     }
  }   
 #endif    
