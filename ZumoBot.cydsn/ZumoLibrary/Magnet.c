@@ -23,7 +23,7 @@ void heading(double X_AXIS, double Y_AXIS)          // defined as the angle betw
         heading += 360;
     
     //If you want to print out the value  
-    //printf("heading: %7.3f \r\n", heading);
+    printf("heading: %7.3f \r\n", heading);
     vTaskDelay(250);
 }
 

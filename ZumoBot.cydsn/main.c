@@ -60,7 +60,12 @@
                 if(dig.l1==1 && dig.l2==1 && dig.l3==1 && dig.r1==1 && dig.r2==1 && dig.r3==1){ //dark line return 0;
                               st=0;
                 }
-                else{
+                else if(dig.l3==0 && dig.l2==0   && dig.l1==1 && dig.r1==1 && dig.r2==1 &&dig.r3==1 ){
+                             st=3;
+                        }
+                else if(dig.l3==1 && dig.l2==1 && dig.l1==1 && dig.r1==1 &&dig.r2==0 && dig.r3==0 ){
+                            st= 2;
+                }else{
                             st=1;
                         }
                 return st;
@@ -81,6 +86,8 @@
                 
                 */
 }
+    
+   
     void motor_hardRight(uint8 speed,uint32 delay)//on point(tank) turn right 
 {
     MotorDirLeft_Write(0);      // set LeftMotor forward mode
@@ -104,12 +111,12 @@ struct sensors_ findThres(){
         motor_start();
         motor_forward(0,0);
         
-        Beep(100,255);
-        vTaskDelay(2000);
+       
+        vTaskDelay(500);
         for(int i =0; i<500; i++){//white first
             
             reflectance_read(&raw);
-             motor_hardLeft(100,5);
+             motor_hardLeft(150,4);
             if(i==0){
                 maxl1=raw.l1;
                 maxl2=raw.l2;
@@ -159,12 +166,18 @@ struct sensors_ findThres(){
              
         }
         motor_forward(0,0);
-        threshold.l1=(maxl1+minl1)/2;
+        /*threshold.l1=(maxl1+minl1)/2;
         threshold.l2=(maxl2+minl2)/2;
         threshold.l3=(maxl3+minl3)/2;
         threshold.r1=(maxr1+minr1)/2;
         threshold.r2=(maxr2+minr2)/2;
-        threshold.r3=(maxr3+minr3)/2;
+        threshold.r3=(maxr3+minr3)/2;*/
+        threshold.l1=minl1+0.25*(maxl1-minl1);
+        threshold.l2=minl2+0.25*(maxl2-minl2);
+        threshold.l3=minl3+0.25*(maxl3-minl3);
+        threshold.r1=minr1+0.25*(maxr1-minr1);
+        threshold.r2=minr2+0.25*(maxr2-minr2);
+        threshold.r3=minr3+0.25*(maxr3-minr3);
         Beep(100,255);
         return threshold;
         /*
@@ -191,21 +204,736 @@ struct sensors_ findThres(){
     }
     return -1;
 }
+ struct accData_ findAccStatus(){
+    struct accData_ stable;
+    int32 maxx, minx, maxy,miny;
+    for(int i=0;i<1000; i++){
+        LSM303D_Read_Acc(&stable);
+        if(i==0){
+            maxx=stable.accX;
+            minx=stable.accX;
+            maxy=stable.accY;
+            miny=stable.accY;
+        }
+        if(stable.accX>maxx){
+            maxx=stable.accX;
+        }if(stable.accX<minx){
+            minx=stable.accX;
+        }
+        if(stable.accY>maxy){
+            maxy=stable.accY;
+        }if(stable.accY<miny){
+            miny=stable.accY;
+        }
+    }
+    stable.accX=(maxx+minx)/2;
+    stable.accY=(maxy+miny)/2;
+    return stable;
+}
+int findSmallStatus(int senser,struct sensors_ dig){
+                int st=-1;
+              if(senser==1){// 1 for l3
+                if(dig.l3==1){ //dark line return 0;
+                              st=0;
+                }
+                else{
+                            st=1;
+                        }
+            }else if(senser==2){// 2 for l2
+                if(dig.l2==1){ //dark line return 0;
+                              st=0;
+                }
+                else{
+                            st=1;
+                        }
+            }else if(senser==3){// 3 for l1
+                if(dig.l1==1){ //dark line return 0;
+                              st=0;
+                }
+                else{
+                            st=1;
+                        }
+            }else if(senser==4){//4 for r1
+                if(dig.r1==1){ //dark line return 0;
+                              st=0;
+                }
+                else{
+                            st=1;
+                        }
+            }else if(senser==5){//5 doe r2
+                if(dig.r2==1){ //dark line return 0;
+                              st=0;
+                }
+                else{
+                            st=1;
+                        }
+            }if(senser==6){//6 for r3
+                if(dig.r3==1){ //dark line return 0;
+                              st=0;
+                }
+                else{
+                            st=1;
+                        }
+            }
+                return st;
+                /*
+                How to use this to find line
+                   
+                int count=0;//register how mant time dark and light changes. one line has two changes since there are two edges 
+                int temp status;
+                status=findSmallStatus(seneor, dig);
+                in while loop
+                    reflectance_digital(&dig);
+                    temp=findStatus(dig);//get new status
+                    motor_forward(50,2); 
+                    if(temp!=status){
+                        count++;
+                        
+                    }
+                    status=temp;//remember the current status
+                
+                */
+}
+void turn90(int option, int xlineNumb, struct sensors_ dig){
+   //two parameter option value control turn left(1) or right(2) dig is the reflection sensor digtal data structure 
+    
+    if(option==1){
+        if(xlineNumb!=6){
+            while((dig.l1==1 && dig.r1==1) || (dig.l1==1 && dig.r1==0) ||(dig.l1==0 && dig.r1==1)){
+                motor_hardLeft(100,0);
+                reflectance_digital(&dig);
+            }
+        }else{
+            while((dig.l1==1 && dig.r1==1) || (dig.l1==1 && dig.r1==0) ||(dig.l1==0 && dig.r1==1)){
+                motor_hardLeft(100,0);
+                reflectance_digital(&dig);
+            }
+        }
+        while(dig.l1!=1 && dig.r1!=1){
+           motor_hardLeft(100,0);
+            reflectance_digital(&dig);
+            
+        }
+        motor_forward(0,0);
+    
+                
+       /* motor_hardLeft(200,250);
+        motor_backward(50,50);
+        
+        motor_forward(0,0);
+        //vTaskDelay(200);
+        */    
+            
+        
+        
+         
+      
+    }else if(option==2){
+       
+        /*motor_hardRight(200,250);
+        motor_backward(50,50);
+        motor_forward(0,0);*/
+        //vTaskDelay(200);
+        if(xlineNumb!=0){
+            while((dig.l1==1 && dig.r1==1) || (dig.l1==1 && dig.r1==0) ||(dig.l1==0 && dig.r1==1)){
+                motor_hardRight(100,0);
+                reflectance_digital(&dig);
+            }
+        }else{
+            while((dig.l1==1 && dig.r1==1) || (dig.l1==1 && dig.r1==0) ||(dig.l1==0 && dig.r1==1)){
+                motor_hardRight(100,0);
+                reflectance_digital(&dig);
+            }
+        }
+        while(dig.l1!=1 && dig.r1!=1){
+           motor_hardRight(100,0);
+            reflectance_digital(&dig);
+            
+        }
+        motor_forward(0,0);
+            
+        
+        
+         
+        
+    }
+}
 
-#if 1 //line following 
+void lturn(int direction, struct sensors_ dig){
+    int temp,status, n=0;
+    
+    if(direction==1){//left
+        
+            
+     status=findSmallStatus(3,dig);
+        while(true){
+            
+           
+            reflectance_digital(&dig);
+            temp=findSmallStatus(3,dig);
+            if(temp!=status){
+                n++;
+                
+                if(n==3){
+                    
+                    break;
+                }
+                status=temp;
+            }
+           // motor_hardLeft(120,0);
+            motor_turn(0,110,0);
+        }
+        
+    }else if(direction==2){
+        motor_forward(50,100);
+        status=findSmallStatus(3,dig);
+        while(true){
+            reflectance_digital(&dig);
+            temp=findSmallStatus(3,dig);
+            if(temp!=status){
+                n++;
+                
+                if(n==2){
+                    
+                    break;
+                }
+                status=temp;
+            }
+            motor_hardRight(100,0);
+        }
+    }else if(direction==3){
+        status=findSmallStatus(4,dig);
+        while(true){
+            reflectance_digital(&dig);
+            temp=findSmallStatus(4,dig);
+            if(temp!=status){
+                n++;
+                
+                if(n==5){
+                    motor_forward(0,0);
+                    
+                    break;
+                }
+                status=temp;
+            }
+            motor_hardRight(150,0);
+        }
+    }
+}
+
+void gostrat(int speed,struct sensors_ dig){
+                    reflectance_digital(&dig);
+                     
+                    if(dig.l1==1 && dig.r1==1 && findStatus(dig)!=0){
+                        motor_forward(speed,0);
+                    }else
+                    if(dig.l1==1 && dig.r2!=1 && findStatus(dig)!=0){
+                        motor_turn(0,100,0);
+                    }else if(dig.l1!=1 && dig.r2==1 && findStatus(dig)!=0){
+                        motor_turn(100,0,0);
+                    }else if(dig.l1==0 && dig.r1==1 && dig.r2==1){
+                        motor_turn(150,0,0);
+                          
+                        
+                    }else if(dig.l1==1 && dig.l2==1 && dig.r1==0 ){
+                        motor_turn(0,150,0);
+                        
+                        
+                    }else if(dig.l3==1 && dig.l2==1 && findStatus(dig)!=0){
+                        motor_turn(0,100,0);
+                    }else if(dig.r3==1 && dig.r2==1 && findStatus(dig)!=0){
+                        motor_turn(100,0,0);
+                    }else if(dig.l3==1 && dig.l2==1 && dig.l1==1 && dig.r2==0&& dig.r1==0 &&dig.r3==0 ){
+                         motor_turn(0,100,0);
+                    }else if(dig.l3==0 && dig.l2==0 && dig.l1==0 && dig.r1==1 && dig.r2==1 &&dig.r3==1 ){
+                         motor_turn(100,0,0);
+                    }else if(dig.l3==1 && dig.l2==0 && dig.l1==0 && dig.r1==0 && dig.r2==0 &&dig.r3==0 ){
+                         motor_turn(200,0,0);
+                    }else if(dig.l3==0 && dig.l2==0 && dig.l1==0 && dig.r1==0 && dig.r2==0 &&dig.r3==1 ){
+                         motor_turn(0,200,0);
+                    }
+                   
+                    
+    
+}
+
+int findEdge(struct sensors_ dig){
+    int p=-1;
+    reflectance_digital(&dig);
+    if(dig.l3==0  && dig.l1==1 && dig.r1==1 && dig.r2==1 &&dig.r3==1 ){
+        p=0;
+    }
+    else if(dig.l3==1 && dig.l2==1 && dig.l1==1 && dig.r1==1 &&dig.r3==0 ){
+        p= 6;
+    }
+    return p;
+}
+
+
+void initMap(int map[14][7]){
+    for(int i=0;i<14;i++){
+            for(int p=0;p<7;p++){
+                map[i][p]=0;
+            }
+        }
+        
+        
+        map[0][0]=1;
+        map[0][1]=1;
+        map[1][0]=1;
+        map[0][5]=1;
+        map[0][6]=1;
+        map[1][6]=1;
+}
+
+void getLine(int speed){
+  
+    struct sensors_ dig;
+    while(1){
+   
+        reflectance_digital(&dig);
+        motor_forward(speed,2);
+        if(findStatus(dig)==0){                     //meet a line 
+            while(findStatus(dig)==0){              //get out the line 
+                reflectance_digital(&dig);
+                motor_forward(speed,2);
+            }
+            break;
+        } 
+    }
+    motor_forward(0,0);
+}
+
+
+
+
+
+
+#if 1 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////777
     void zmain(){
+        TickType_t start, end;
+        start=end=xTaskGetTickCount();
+        
+        
+        //get reflectance sensor ready
+        //get reflectance sensor ready
+        reflectance_start();
+        struct sensors_ dig, thres;
+        //set threshold
+        //thres=findThres();
+        //reflectance_set_threshold(thres.l3,thres.l2,thres.l1,thres.r1,thres.r2,thres.r3);
+        reflectance_set_threshold(11038, 10406, 9000, 9462, 9657, 10473);
+        IR_Start();
+        IR_flush();
+        //get Ultra ready
+       
+        motor_start();
+        
+        
+        int speed=50;
+        int mindis=20;
+        // n for find if it is the first time the bot enter the field
+        int  n=0, p=0;
+        // creat a bot
+         struct bot{
+            int x;
+            int y;
+            int head; //1 north 2 east 3 south 4 west
+            
+        }mybot;
+        // define initial map
+        int map[14][7];
+        
+        for(int i=0;i<14;i++){
+            for(int p=0;p<7;p++){
+                map[i][p]=0;
+            }
+        }
+         Ultra_Start();
+        Ultra_GetDistance();
+        
+        map[0][0]=1;
+        map[0][1]=1;
+        map[1][0]=1;
+        map[0][5]=1;
+        map[0][6]=1;
+        map[1][6]=1;
+        
+        
+        IR_wait();
+        getLine(speed);                                                 // get to the waiting line and wait for IR signal
+        print_mqtt("Zumo037/ready"," maze\n");
+        IR_wait();
+        
+                   
+                
+        
+        while(true){
+            reflectance_digital(&dig);
+            gostrat(speed,dig);
+            //met a line
+             reflectance_digital(&dig);
+             if(findStatus(dig)==3 && mybot.x==0 && ( mybot.head%4+1!=2)){ //sometimes it double caculate the x value to protect it need x value and direction 
+                
+                 while(findStatus(dig)==3){
+                        //wait until got out of the line
+                        reflectance_digital(&dig);
+                        motor_forward(speed,2);
+                    }
+                Beep(50,150);
+                
+                if((mybot.head%4+1)==1){
+                              mybot.y--;
+                        }else if((mybot.head%4+1)==2){
+                              mybot.x++;
+                       }else if((mybot.head%4+1)==3){
+                              mybot.y++;
+                        }else if((mybot.head%4+1)==4){
+                              mybot.x--;
+                       }
+                        print_mqtt("Zumo037/position"," %d %d", mybot.x,mybot.y);
+                        
+                 if(mybot.head%4+1==1){
+                    if(map[mybot.y][mybot.x+1]==0){
+                        motor_forward(50,200);
+                        turn90(2,mybot.x,dig);
+                        mybot.head++;
+                         if(Ultra_GetDistance()<mindis){
+                                map[mybot.y][mybot.x+1]=1;
+                                
+                                turn90(1,mybot.x,dig);
+                               
+                                mybot.head--;
+                                
+                            }
+                       
+                        
+                    }
+                }
+            
+            }else
+            if(findStatus(dig)==2 && mybot.x==6 && ( mybot.head%4+1!=4)){
+                
+                 while(findStatus(dig)==2){
+                        //wait until got out of the line
+                        reflectance_digital(&dig);
+                        motor_forward(speed,2);
+                    }
+                Beep(50,50);
+                print_mqtt("Zumo037/position"," %d %d", mybot.x,mybot.y);
+                if((mybot.head%4+1)==1){
+                              mybot.y--;
+                        }else if((mybot.head%4+1)==2){
+                              mybot.x++;
+                       }else if((mybot.head%4+1)==3){
+                              mybot.y++;
+                        }else if((mybot.head%4+1)==4){
+                              mybot.x--;
+                       }
+                        
+                        
+                 if(mybot.head%4+1==1){
+                    if(map[mybot.y][mybot.x-1]==0){
+                        turn90(1,mybot.x,dig);
+                        mybot.head--;
+                         if(Ultra_GetDistance()<mindis){
+                                map[mybot.y][mybot.x-1]=1;
+                                
+                                turn90(2,mybot.x,dig);
+                               
+                                mybot.head++;
+                                
+                            }
+                       
+                        
+                    }
+                }
+            
+            }else if(findStatus(dig)==0){                                                         //met a new line  ||st==2||st==3
+               
+                
+                
+                    while(findStatus(dig)==0){
+                        //wait until got out of the line
+                        reflectance_digital(&dig);
+                        motor_forward(speed,2);
+                    }
+                
+                Beep(100,100);
+              
+                  if(n==0){
+                    mybot.x=3;
+                    mybot.y=13;
+                    mybot.head=4;
+                    
+                    n++;
+                  }else {
+                        if((mybot.head%4+1)==1){
+                              mybot.y--;
+                        }else if((mybot.head%4+1)==2){
+                              mybot.x++;
+                       }else if((mybot.head%4+1)==3){
+                              mybot.y++;
+                        }else if((mybot.head%4+1)==4){
+                              mybot.x--;
+                       }
+                    
+                    }
+                print_mqtt("Zumo037/position"," %d %d", mybot.x,mybot.y);
+                /*for(int i=0; i<14;i++){
+                    for(int p=0; p<7;p++){
+                        printf("%d ",map[i][p]);
+                    }
+                    printf("\n");
+                }*/
+        
+                
+                //heading to north
+                if(mybot.head%4+1==1){
+                    
+                   if(Ultra_GetDistance()<mindis){           //obstical in front
+                        map[mybot.y-1][mybot.x]=1;
+                        //check if it is on the edges
+                        if(mybot.x==6){                         
+                            turn90(1,mybot.x,dig);
+                            mybot.head--;
+                            
+                            if(Ultra_GetDistance()<mindis){
+                                map[mybot.y][mybot.x-1]=1;
+                                
+                                turn90(2,mybot.x,dig);
+                               
+                                mybot.head++;
+                                
+                            }
+                        }else if(mybot.x==0){
+                            motor_forward(50,200);
+                                turn90(2,mybot.x,dig);
+                                mybot.head++;
+                                if(Ultra_GetDistance()<mindis){
+                                    map[mybot.y][mybot.x+1]=1;
+                                    turn90(2,mybot.x,dig);
+                                    mybot.head++;
+                                
+                                }
+                                
+                            
+                         
+                        }else if(map[mybot.y][mybot.x+1]==0){//if space avalible
+                            motor_forward(50,200);
+                            turn90(2,mybot.x,dig);
+                            mybot.head++;
+                           
+                            //check obj right after turn
+                            if(Ultra_GetDistance()<mindis){
+                                map[mybot.y-1][mybot.x]=1;
+                                lturn(3,dig);
+                                mybot.head=mybot.head+2;
+                                
+                            }
+                        }else if(map[mybot.y][mybot.x-1]==0){
+                            motor_forward(50,200);
+                                turn90(1,mybot.x,dig);
+                                mybot.head--;
+                                if(Ultra_GetDistance()<mindis){
+                                map[mybot.y][mybot.x-1]=1;
+                                turn90(1,mybot.x,dig);
+                                mybot.head--;
+                                
+                            }
+                                
+                            
+                        } 
+                    }else if(mybot.x>3 && map[mybot.y][mybot.x-1]==0){
+                        motor_forward(50,200);
+                        turn90(1,mybot.x,dig);
+                        mybot.head--;
+                        if(Ultra_GetDistance()<mindis){
+                                map[mybot.y][mybot.x-1]=1;
+                                turn90(2,mybot.x,dig);
+                                mybot.head++;
+                                
+                            }
+                    }else if(mybot.x<3 && map[mybot.y][mybot.x+1]==0){
+                        motor_forward(50,200);
+                        turn90(2,mybot.x,dig);
+                        mybot.head++;
+                        if(Ultra_GetDistance()<mindis){
+                                map[mybot.y][mybot.x+1]=1;
+                                turn90(1,mybot.x,dig);
+                                mybot.head--;
+                                
+                            }
+                    }else if(mybot.y==2){
+                        if(mybot.x>3){
+                            motor_forward(50,100);
+                            turn90(1,mybot.x,dig);
+                            mybot.head--;
+                        }else if(mybot.x<3){
+                            motor_forward(50,100);
+                            turn90(2,mybot.x,dig);
+                            mybot.head++;
+                            
+                        }
+                    }
+                    else if(mybot.y==0){
+                        motor_forward(50,2000);
+                        motor_hardRight(255,500);
+                        motor_forward(0,0);
+                        end=xTaskGetTickCount();
+                        print_mqtt("Zumo037/stop"," %lu",end);
+                        print_mqtt("Zumo037/time"," %lu",end-start);
+                        
+                    }
+
+                }//end of mybot.head%4+1==1
+                //heading to east
+                else if(mybot.head%4+1==2){
+                        if(Ultra_GetDistance()<mindis){
+                            map[mybot.y][mybot.x+1]=1;
+                            if(map[mybot.y-1][mybot.x]==1){
+                                motor_forward(50,200);
+                                turn90(2,mybot.x,dig);
+                                mybot.head++;
+                                
+                            }else{
+                                motor_forward(50,200);
+                                turn90(1,mybot.x,dig);
+                                mybot.head--;
+                            }
+                            
+                        
+                        }else if(mybot.x>3 && map[mybot.y-1][mybot.x]==0   &&mybot.x!=6 ){
+                            motor_forward(50,200);
+                            turn90(1,mybot.x,dig);
+                            mybot.head--;
+                            //read right after turn
+                            if(Ultra_GetDistance()<mindis){
+                                
+                                 
+                               
+                                    map[mybot.y-1][mybot.x]=1;
+                                    
+                                    turn90(2,mybot.x,dig);
+                                    mybot.head++;
+                                 
+                            
+                            }
+                        }else if(mybot.x==6){
+                                    motor_forward(50,200);
+                                     reflectance_digital(&dig);
+                                    while(dig.r2!=1){
+                                        
+                                        reflectance_digital(&dig);
+                                        motor_hardLeft(100,0);
+                                        
+                                        
+                                    }
+                                  motor_forward(0,0);
+                                
+                                    mybot.head--;
+                                  
+                                    
+                       }else if(mybot.x==3 && mybot.y<=2){
+                                motor_forward(50,200);
+                                turn90(2,mybot.x,dig);
+                                mybot.head++;
+                                
+                    }
+                }//end of east
+                //south
+                else if(mybot.head%4+1==3){
+                    Beep(255,100);
+                    motor_forward(50,200);
+                    turn90(2,mybot.x,dig);
+                    mybot.head++;
+                    
+                    
+                    
+                }//end of south
+                //west
+                else if(mybot.head%4+1==4){
+                    if(Ultra_GetDistance()<mindis){
+                            map[mybot.y][mybot.x-1]=1;
+                            if(map[mybot.y-1][mybot.x]==1){
+                                motor_forward(50,200);
+                                turn90(1,mybot.x,dig);
+                                mybot.head--;
+                                
+                            }else{
+                                motor_forward(50,200);
+                                turn90(2,mybot.x,dig);
+                                mybot.head++;
+                                if(Ultra_GetDistance()<mindis){
+                                    map[mybot.y-1][mybot.x]=1;
+                                    turn90(2,mybot.x,dig);
+                                    mybot.head++;
+                                    
+                                }
+                            }
+                            
+                        
+                        }else if(mybot.x==3){
+                             motor_forward(50,200);
+                                turn90(2,mybot.x,dig);
+                                mybot.head++;
+                                if(Ultra_GetDistance()<mindis){
+                                    map[mybot.y-1][mybot.x]=1;
+                                    turn90(1,mybot.x,dig);
+                                    mybot.head--;
+                                    
+                                }
+                            
+                        }
+                        if(mybot.x==0){
+                            motor_forward(50,200);
+                                     reflectance_digital(&dig);
+                                    while(dig.l2!=1){
+                                        
+                                        reflectance_digital(&dig);
+                                        motor_hardRight(100,0);
+                                        
+                                        
+                                    }
+                                  motor_forward(0,0);
+                                
+                                    mybot.head++;
+                        }
+                    
+                }//end of west 
+                    
+               
+               
+            
+            }
+            
+           
+        }
+                
+    } 
+#endif
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#if 0 //line following 
+    void zmain(){
+        
+        
+        
         motor_start();
         reflectance_start();
-        int speed=50;        //initial speed 
-         struct accData_ data; //acc_sensor data
-        struct sensors_ dig,threshold; // reflection sensor data
+        int speed=50;                                          //initial speed 
+         struct accData_ data;                                  //acc_sensor data
+        struct sensors_ dig,threshold;                          // reflection sensor data
         threshold=findThres();// find threshold
         
-        reflectance_set_threshold(threshold.l3,threshold.l2,threshold.l1,threshold.r1,threshold.r2,threshold.r3); // set thresthold
+        reflectance_set_threshold(threshold.l3,threshold.l2,threshold.l1,threshold.r1,threshold.r2,threshold.r3);           // set thresthold
         
         if(LSM303D_Start()){
             while(true){
-                //find where is the line 
+                reflectance_digital(&dig);
+                if(dig.l3==1 && dig.l2==1 && dig.l1==1 && dig.r1==1 &&dig.r2==1 &&dig.r3==1 ){
+                    
+                }
+                
                 
                 
             }
@@ -221,72 +949,152 @@ struct sensors_ findThres(){
     void zmain(){
         motor_start();
         reflectance_start();
-        int speed=50;
+        Ultra_Start();
+        IR_Start();
+        IR_flush();
+        int speed=150;
+        int co=60; //how sensible it is
+        int delay=230;// delay for turning
+        int count=3;
+        TickType_t start, end;//time count
         
        
         
-        struct accData_ data;
+        struct accData_ data, stable;
+        
         struct sensors_ dig,threshold;
         threshold=findThres();
+        Beep(255,100);
         
         reflectance_set_threshold(threshold.l3,threshold.l2,threshold.l1,threshold.r1,threshold.r2,threshold.r3);
         
       if(LSM303D_Start()){
-        
+        vTaskDelay(2000);
+        stable=findAccStatus();
+        print_mqtt("Zumo044/stable","stable %10d,%10d,%10d", stable.accX, stable.accY, stable.accZ );
+        Beep(100,255);
         while(SW1_Read()==1){
             vTaskDelay(2);
         }
+        int status=0;
+        int temp=findStatus(dig);
+        
+        while(count>0){
+            reflectance_digital(&dig);
+                    temp=findStatus(dig);//get new status
+                    motor_forward(50,2); 
+                    if(temp!=status){
+                        count--;
+                        
+                    }
+                    status=temp;
+            
+        }
+        motor_forward(0,0);
+        print_mqtt("Zumo044/ready","zumo044");
+        Beep(200,200);
+        IR_wait();
+        
+        print_mqtt("Zumo044/start ","%d",start);
+        motor_forward(100,50);
+        
+        
        
             
-                while(true){
+                while(SW1_Read()==1){
                     
                         LSM303D_Read_Acc(&data);
                         reflectance_digital(&dig);
+                        start=xTaskGetTickCount();
+                        
+                        
                         motor_forward(speed,2);
-                        if(dig.l1&dig.l2&dig.l3&dig.r1&dig.r2&dig.r3!=1){
-                            motor_hardLeft(255,100);
-                            motor_backward(0,0);
-                        }
+                        
                         if(dig.l3==1 && dig.r3!=1){
-                            motor_hardLeft(255,50);
-                             motor_backward(0,0);
+                            speed=150;
+                            motor_forward(0,0);
+                                motor_backward(100,500);
+                               
+                              motor_hardRight(255,delay);
+                            motor_forward(0,0);
                         }
                         if(dig.l3!=1 && dig.r3==1){
-                             motor_hardRight(255,50);
-                             motor_backward(0,0);
+                            speed=150;
+                            motor_forward(0,0);
+                            motor_backward(100,500);
+                            
+                             motor_hardLeft(255,delay);
+                            motor_forward(0,0);
+                             
                         }
+                       
                         
-                        printf("%10d,%10d,%10d\n", data.accX, data.accY, data.accZ );
-                        if(data.accX<-15000 && data.accY<0.33*data.accX){
+                        //printf("%10d,%10d,%10d\n", data.accX, data.accY, data.accZ );
+                        if(data.accX<-co*stable.accX && data.accY<co*stable.accY){
+                            speed=150;
                             Beep(100,255);
-                            printf("Got hit from left front(45degree)\n ");
-                            motor_hardLeft(255,50);
-                             motor_backward(0,0);
+                            print_mqtt("Zumo044/hit ","Got hit from left front(135 degree) ");
+                            motor_hardLeft(255,delay);
                             
-                        }if(data.accX<-15000 && data.accY>10000){
-                            Beep(100,255);
-                            printf("Got hit from right front(-45degree)\n ");
-                            motor_hardRight(255,50);
-                             motor_backward(0,0);
                             
-                        }if(abs(data.accX)<2500 && data.accY>10000){
+                        }
+                        if(data.accX<-co*stable.accX && data.accY>co*abs(stable.accY)){
+                            speed=150;
                             Beep(100,255);
-                            printf("Got hit from left\n ");
-                            motor_hardLeft(255,100);
-                             motor_backward(0,0);
-                        }if(data.accX>5000 && data.accY>5000){
-                            Beep(100,255);
-                            printf("Got hit from left back\n ");
-                            motor_hardLeft(255,50);
-                             motor_backward(0,0);
-                        }if(data.accX>-20000 && abs(data.accY)<2000){
-                             Beep(100,255);
-                            printf("Got hit from left back\n ");
-                            motor_forward(255,50);
-                             motor_backward(0,0);
+                            print_mqtt("Zumo044/hit ","Got hit from right front(45degree)");
+                            motor_hardRight(255,delay);
+                             
                             
+                        }
+                        if(data.accX>co*stable.accX && data.accY>co*abs(stable.accY)){
+                            speed=150;
+                            Beep(100,255);
+                            print_mqtt("Zumo044/hit ","Got hit from right back( 135 degree)");
+                            motor_hardRight(255,delay+200);
+                             
+                            
+                        }
+                         if(data.accX>co*stable.accX && data.accY<-co*abs(stable.accY)){
+                            speed=150;
+                            Beep(100,255);
+                            print_mqtt("Zumo044/hit ","Got hit from left back(135 degree)");
+                            motor_hardRight(255,delay+200);
+                            
+                            
+                        }
+                        if(data.accX<-co*stable.accX && data.accY<abs(2000-stable.accY)){
+                            
+                            Beep(100,255);
+                            
+                            print_mqtt("Zumo044/hit ","Got hit from front(0 degree)");
+                            
+                            speed=255;
+                            
+                            
+                        }
+                        if(data.accX>25000  && data.accY<abs(3000-stable.accY)){
+                            speed=100;
+                            Beep(100,255);
+                            print_mqtt("Zumo044/hit ","Got hit from back(180 degree)");
+                            motor_hardRight(255,delay+200);
+                            
+                        }
+                        if(data.accX<abs(500-stable.accX) && data.accY<-abs(co*stable.accY)){
+                            speed=100;
+                            Beep(200,100);//from left;
+                            print_mqtt("Zumo044/hit ","Got hit from left(270 degree)");
+                            motor_hardLeft(255,delay);
+                        }
+                        if(data.accX<abs(500-stable.accX) && data.accY>abs(co*stable.accY)){
+                            speed=100;
+                            Beep(200,100);//from right;
+                            print_mqtt("Zumo044/hit ","Got hit from right(90 degree)");
+                            motor_hardRight(255,delay);
                         }
                 }
+                end=xTaskGetTickCount();
+                print_mqtt("Zumo044/stop ","%d",end);
+                print_mqtt("Zumo044/time ","%d",end-start);
             
         
     }
@@ -371,7 +1179,7 @@ struct sensors_ findThres(){
                 motor_hardLeft(100,500);
                 print_mqtt("Zumo044/turn ","left");
                 
-            }else{
+            }else{          // turn right
                 motor_hardRight(100,500);
                 print_mqtt("Zumo044/turn ","right");
             }
@@ -529,7 +1337,7 @@ void zmain(void){
 #if 0
     
 //4.2
-    void motor_hardLeft(uint8 speed,uint32 delay)
+    /*void motor_hardLeft(uint8 speed,uint32 delay)
 {
     MotorDirLeft_Write(1);      // set LeftMotor forward mode
     MotorDirRight_Write(0);     // set RightMotor forward mode
@@ -553,7 +1361,7 @@ int findStatus(struct sensors_ dig){
                             st=1;
                         }
                         return st;
-}
+}*/
 
 void zmain(void)
 {      
@@ -588,15 +1396,15 @@ void zmain(void)
             }
             if(count==5){
                 motor_forward(0,0);
-                motor_hardLeft(235,200);
+                motor_hardLeft(215,200);
             }
             if(count==7){
                 motor_forward(0,0);
-                motor_hardRight(235,200);
+                motor_hardRight(220,200);
             }
             if(count== 9){
                 motor_forward(0,0);
-                motor_hardRight(235,200);
+                motor_hardRight(220,200);
                 
             }
             if(count==10){
