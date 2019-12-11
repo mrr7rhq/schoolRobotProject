@@ -55,7 +55,7 @@
  * @brief   
  * @details  ** Enable global interrupt since Zumo library uses interrupts. **<br>&nbsp;&nbsp;&nbsp;CyGlobalIntEnable;<br>
 */
-    int findStatus(struct sensors_ dig){
+    int findStatus(struct sensors_ dig){                                               
                 int st=-1;
                 if(dig.l1==1 && dig.l2==1 && dig.l3==1 && dig.r1==1 && dig.r2==1 && dig.r3==1){ //dark line return 0;
                               st=0;
@@ -105,7 +105,7 @@
     PWM_WriteCompare2(speed); 
     vTaskDelay(delay);
 }
-struct sensors_ findThres(){
+struct sensors_ findThres(){                                                // find threhold by itself
     struct sensors_ raw, threshold;
         uint32_t maxl1=0,maxl2=0,maxl3=0,maxr1=0,maxr2=0,maxr3=0, minl1=0,minl2=0,minl3=0,minr1=0,minr2=0,minr3=0;
         motor_start();
@@ -189,7 +189,7 @@ struct sensors_ findThres(){
         reflectance_set_threshold(threshold.l3,threshold.l2,threshold.l1,threshold.r1,threshold.r2,threshold.r3);
         */
 }
-   int lineStatus(struct sensors_ dig){
+   int lineStatus(struct sensors_ dig){                    //check the reflection sensor situation 
     if(dig.l1==1 && dig.r1==1){
         
         return 3;// go straght
@@ -204,7 +204,7 @@ struct sensors_ findThres(){
     }
     return -1;
 }
- struct accData_ findAccStatus(){
+ struct accData_ findAccStatus(){      //to normalize acceration seneor readings
     struct accData_ stable;
     int32 maxx, minx, maxy,miny;
     for(int i=0;i<1000; i++){
@@ -230,7 +230,7 @@ struct sensors_ findThres(){
     stable.accY=(maxy+miny)/2;
     return stable;
 }
-int findSmallStatus(int senser,struct sensors_ dig){
+int findSmallStatus(int senser,struct sensors_ dig){  //to check reading changes of selected reflection seneor
                 int st=-1;
               if(senser==1){// 1 for l3
                 if(dig.l3==1){ //dark line return 0;
@@ -295,11 +295,13 @@ int findSmallStatus(int senser,struct sensors_ dig){
                 */
 }
 void turn90(int option, int xlineNumb, struct sensors_ dig){
-   //two parameter option value control turn left(1) or right(2) dig is the reflection sensor digtal data structure 
+   //two parameter 1  option value control turn left(1) or right(2) 
+    //2 dig is the reflection sensor digtal data structure                    to make a nice 90 degree turn using reflection sensors and to your selected direction  
     
-    if(option==1){
+    if(option==1){//left
         if(xlineNumb!=6){
-            while((dig.l1==1 && dig.r1==1) || (dig.l1==1 && dig.r1==0) ||(dig.l1==0 && dig.r1==1)){
+            while((dig.l1==1 && dig.r1==1) || (dig.l1==1 && dig.r1==0) ||(dig.l1==0 && dig.r1==1)){  //I know the conditions are the same. at first I thought it should not be the same but after 
+                                                                                                        //I do not want to change the code since I break the code so many time because of this kind of change 
                 motor_hardLeft(100,0);
                 reflectance_digital(&dig);
             }
@@ -317,23 +319,15 @@ void turn90(int option, int xlineNumb, struct sensors_ dig){
         motor_forward(0,0);
     
                 
-       /* motor_hardLeft(200,250);
-        motor_backward(50,50);
-        
-        motor_forward(0,0);
-        //vTaskDelay(200);
-        */    
+      
             
         
         
          
       
-    }else if(option==2){
+    }else if(option==2){//right
        
-        /*motor_hardRight(200,250);
-        motor_backward(50,50);
-        motor_forward(0,0);*/
-        //vTaskDelay(200);
+       
         if(xlineNumb!=0){
             while((dig.l1==1 && dig.r1==1) || (dig.l1==1 && dig.r1==0) ||(dig.l1==0 && dig.r1==1)){
                 motor_hardRight(100,0);
@@ -401,7 +395,7 @@ void lturn(int direction, struct sensors_ dig){
             }
             motor_hardRight(100,0);
         }
-    }else if(direction==3){
+    }else if(direction==3){       //only using this to make a 180 degree turn
         status=findSmallStatus(4,dig);
         while(true){
             reflectance_digital(&dig);
@@ -421,7 +415,7 @@ void lturn(int direction, struct sensors_ dig){
     }
 }
 
-void gostrat(int speed,struct sensors_ dig){
+void gostrat(int speed,struct sensors_ dig){ // following the line
                     reflectance_digital(&dig);
                      
                     if(dig.l1==1 && dig.r1==1 && findStatus(dig)!=0){
@@ -470,7 +464,7 @@ int findEdge(struct sensors_ dig){
 }
 
 
-void initMap(int map[14][7]){
+void initMap(int map[14][7]){       //set map to init status
     for(int i=0;i<14;i++){
             for(int p=0;p<7;p++){
                 map[i][p]=0;
@@ -486,7 +480,7 @@ void initMap(int map[14][7]){
         map[1][6]=1;
 }
 
-void getLine(int speed){
+void getLine(int speed){                            //stop at a line
   
     struct sensors_ dig;
     while(1){
