@@ -567,6 +567,7 @@ void getLine(int speed){                            //stop at a line
             gostrat(speed,dig);
             //met a line
              reflectance_digital(&dig);
+            //if it is on the west edge findstatus return 3 
              if(findStatus(dig)==3 && mybot.x==0 && ( mybot.head%4+1!=2)){ //sometimes it double caculate the x value to protect it need x value and direction 
                 
                  while(findStatus(dig)==3){
@@ -589,9 +590,10 @@ void getLine(int speed){                            //stop at a line
                         
                  if(mybot.head%4+1==1){
                     if(map[mybot.y][mybot.x+1]==0){
-                        motor_forward(50,200);
+                        motor_forward(50,500);
                         turn90(2,mybot.x,dig);
                         mybot.head++;
+                        vTaskDelay(200);//-------edit mark
                          if(Ultra_GetDistance()<mindis){
                                 map[mybot.y][mybot.x+1]=1;
                                 
@@ -605,7 +607,7 @@ void getLine(int speed){                            //stop at a line
                     }
                 }
             
-            }else
+            }else  //if its one east edge findStatus return 2 and the other two arguments to prevent double readings 
             if(findStatus(dig)==2 && mybot.x==6 && ( mybot.head%4+1!=4)){
                 
                  while(findStatus(dig)==2){
@@ -630,6 +632,7 @@ void getLine(int speed){                            //stop at a line
                     if(map[mybot.y][mybot.x-1]==0){
                         turn90(1,mybot.x,dig);
                         mybot.head--;
+                        vTaskDelay(200);//-------edit mark
                          if(Ultra_GetDistance()<mindis){
                                 map[mybot.y][mybot.x-1]=1;
                                 
@@ -643,7 +646,8 @@ void getLine(int speed){                            //stop at a line
                     }
                 }
             
-            }else if(findStatus(dig)==0){                                                         //met a new line  ||st==2||st==3
+            }else //meet a line  in the map not on the edges
+            if(findStatus(dig)==0){                                                          
                
                 
                 
@@ -674,24 +678,16 @@ void getLine(int speed){                            //stop at a line
                     
                     }
                 print_mqtt("Zumo037/position"," %d %d", mybot.x,mybot.y);
-                /*for(int i=0; i<14;i++){
-                    for(int p=0; p<7;p++){
-                        printf("%d ",map[i][p]);
-                    }
-                    printf("\n");
-                }*/
-        
                 
-                //heading to north
                 if(mybot.head%4+1==1){
-                    
+                    vTaskDelay(200);//-------edit mark
                    if(Ultra_GetDistance()<mindis){           //obstical in front
                         map[mybot.y-1][mybot.x]=1;
                         //check if it is on the edges
                         if(mybot.x==6){                         
                             turn90(1,mybot.x,dig);
                             mybot.head--;
-                            
+                            vTaskDelay(200);//-------edit mark
                             if(Ultra_GetDistance()<mindis){
                                 map[mybot.y][mybot.x-1]=1;
                                 
@@ -704,6 +700,7 @@ void getLine(int speed){                            //stop at a line
                             motor_forward(50,200);
                                 turn90(2,mybot.x,dig);
                                 mybot.head++;
+                                vTaskDelay(200);//-------edit mark
                                 if(Ultra_GetDistance()<mindis){
                                     map[mybot.y][mybot.x+1]=1;
                                     turn90(2,mybot.x,dig);
@@ -717,6 +714,7 @@ void getLine(int speed){                            //stop at a line
                             motor_forward(50,200);
                             turn90(2,mybot.x,dig);
                             mybot.head++;
+                            vTaskDelay(200);//-------edit mark
                            
                             //check obj right after turn
                             if(Ultra_GetDistance()<mindis){
@@ -729,6 +727,7 @@ void getLine(int speed){                            //stop at a line
                             motor_forward(50,200);
                                 turn90(1,mybot.x,dig);
                                 mybot.head--;
+                                vTaskDelay(200);//-------edit mark
                                 if(Ultra_GetDistance()<mindis){
                                 map[mybot.y][mybot.x-1]=1;
                                 turn90(1,mybot.x,dig);
@@ -742,6 +741,7 @@ void getLine(int speed){                            //stop at a line
                         motor_forward(50,200);
                         turn90(1,mybot.x,dig);
                         mybot.head--;
+                        vTaskDelay(200);//-------edit mark
                         if(Ultra_GetDistance()<mindis){
                                 map[mybot.y][mybot.x-1]=1;
                                 turn90(2,mybot.x,dig);
@@ -752,6 +752,7 @@ void getLine(int speed){                            //stop at a line
                         motor_forward(50,200);
                         turn90(2,mybot.x,dig);
                         mybot.head++;
+                        vTaskDelay(200);//-------edit mark
                         if(Ultra_GetDistance()<mindis){
                                 map[mybot.y][mybot.x+1]=1;
                                 turn90(1,mybot.x,dig);
@@ -783,6 +784,7 @@ void getLine(int speed){                            //stop at a line
                 }//end of mybot.head%4+1==1
                 //heading to east
                 else if(mybot.head%4+1==2){
+                    vTaskDelay(200);//-------edit mark
                         if(Ultra_GetDistance()<mindis){
                             map[mybot.y][mybot.x+1]=1;
                             if(map[mybot.y-1][mybot.x]==1){
@@ -802,6 +804,7 @@ void getLine(int speed){                            //stop at a line
                             turn90(1,mybot.x,dig);
                             mybot.head--;
                             //read right after turn
+                            vTaskDelay(200);//-------edit mark
                             if(Ultra_GetDistance()<mindis){
                                 
                                  
@@ -814,7 +817,7 @@ void getLine(int speed){                            //stop at a line
                             
                             }
                         }else if(mybot.x==6){
-                                    motor_forward(50,200);
+                                    motor_forward(50,100);
                                      reflectance_digital(&dig);
                                     while(dig.r2!=1){
                                         
@@ -847,6 +850,7 @@ void getLine(int speed){                            //stop at a line
                 }//end of south
                 //west
                 else if(mybot.head%4+1==4){
+                    vTaskDelay(200);//-------edit mark
                     if(Ultra_GetDistance()<mindis){
                             map[mybot.y][mybot.x-1]=1;
                             if(map[mybot.y-1][mybot.x]==1){
@@ -858,6 +862,7 @@ void getLine(int speed){                            //stop at a line
                                 motor_forward(50,200);
                                 turn90(2,mybot.x,dig);
                                 mybot.head++;
+                                vTaskDelay(200);//-------edit mark
                                 if(Ultra_GetDistance()<mindis){
                                     map[mybot.y-1][mybot.x]=1;
                                     turn90(2,mybot.x,dig);
@@ -871,6 +876,7 @@ void getLine(int speed){                            //stop at a line
                              motor_forward(50,200);
                                 turn90(2,mybot.x,dig);
                                 mybot.head++;
+                                vTaskDelay(200);//-------edit mark
                                 if(Ultra_GetDistance()<mindis){
                                     map[mybot.y-1][mybot.x]=1;
                                     turn90(1,mybot.x,dig);
@@ -880,7 +886,7 @@ void getLine(int speed){                            //stop at a line
                             
                         }
                         if(mybot.x==0){
-                            motor_forward(50,200);
+                            motor_forward(50,100);//-------edit mark
                                      reflectance_digital(&dig);
                                     while(dig.l2!=1){
                                         
@@ -892,6 +898,18 @@ void getLine(int speed){                            //stop at a line
                                   motor_forward(0,0);
                                 
                                     mybot.head++;
+                        }else if(mybot.x<3){//-------edit mark
+                             motor_forward(50,200);
+                                turn90(2,mybot.x,dig);
+                                mybot.head++;
+                                vTaskDelay(200);
+                                if(Ultra_GetDistance()<mindis){
+                                    map[mybot.y-1][mybot.x]=1;
+                                    turn90(1,mybot.x,dig);
+                                    mybot.head--;
+                                    
+                                }
+                            
                         }
                     
                 }//end of west 
