@@ -556,8 +556,11 @@ void getLine(int speed){                            //stop at a line
         
         IR_wait();
         getLine(speed);                                                 // get to the waiting line and wait for IR signal
-        print_mqtt("Zumo037/ready"," maze\n");
+        print_mqtt("Zumo037/ready"," maze");
+        
         IR_wait();
+        start=xTaskGetTickCount();
+        print_mqtt("Zumo037/start"," %lu",start);
         
                    
                 
@@ -589,6 +592,22 @@ void getLine(int speed){                            //stop at a line
                         print_mqtt("Zumo037/position"," %d %d", mybot.x,mybot.y);
                         
                  if(mybot.head%4+1==1){
+                     if(mybot.y==2){
+                        motor_forward(50,100);
+                                    motor_forward(0,0);//--edit mark
+                                     reflectance_digital(&dig);
+                                    while(dig.r2!=1){
+                                        
+                                        reflectance_digital(&dig);
+                                        motor_hardRight(100,0);
+                                        
+                                        
+                                    }
+                                  motor_forward(0,0);
+                                
+                                    mybot.head++;
+                    }
+                    else
                     if(map[mybot.y][mybot.x+1]==0){
                         motor_forward(50,500);
                         turn90(2,mybot.x,dig);
@@ -778,6 +797,7 @@ void getLine(int speed){                            //stop at a line
                         end=xTaskGetTickCount();
                         print_mqtt("Zumo037/stop"," %lu",end);
                         print_mqtt("Zumo037/time"," %lu",end-start);
+                       
                         
                     }
 
@@ -921,6 +941,7 @@ void getLine(int speed){                            //stop at a line
             
            
         }
+         
                 
     } 
 #endif
