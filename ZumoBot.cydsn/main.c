@@ -609,7 +609,7 @@ void getLine(int speed){                            //stop at a line
                     }
                     else
                     if(map[mybot.y][mybot.x+1]==0){
-                        motor_forward(50,500);
+                        motor_forward(50,200);
                         turn90(2,mybot.x,dig);
                         mybot.head++;
                         vTaskDelay(200);//-------edit mark
