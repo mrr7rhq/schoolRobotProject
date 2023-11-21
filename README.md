@@ -1,1 +1,1 @@
-# PSoC Creator project for Metropolia PSoC-Zumo adapter
+# Zumo maze
